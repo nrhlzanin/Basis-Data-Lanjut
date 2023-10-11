@@ -1,0 +1,362 @@
+/**/
+SELECT * 
+FROM HR.Employees;
+
+CREATE VIEW HR.emp
+as
+SELECT * 
+FROM HR.Employees;
+
+SELECT *
+FROM HR.emp;
+
+/**/
+CREATE FUNCTION HR.femp()
+RETURN TABLE 
+AS
+RETURN
+SELECT o.*;
+
+SELECT * FROM HR.femp();
+
+/*Tugas
+Perusahaan ingin menampilkan data total omset penjualan dikelompokkan 
+berdasarkan nama kategori produk per tahun.Diurutkan berdasarkan nama categori.
+Tuliskan menggunakan VIew, TVF, CTE dan Deviratife Table*/
+
+/*View*/
+CREATE VIEW Sales.Omset AS
+SELECT 
+    c.categoryname AS 'Kategori Produk',
+    YEAR(o.orderdate) AS 'Tahun',
+    SUM(od.qty * od.unitprice) AS 'Total Omset'
+FROM Sales.Orders o
+INNER JOIN Sales.OrderDetails od ON o.orderid = od.orderid
+INNER JOIN Production.Products p ON od.productid = p.productid
+INNER JOIN Production.Categories c ON p.categoryid = c.categoryid
+GROUP BY YEAR(o.orderdate), c.categoryname;
+
+SELECT * FROM Sales.Omset
+ORDER BY 'Kategori Produk', Tahun;
+
+/*TVF*/
+CREATE FUNCTION Sales.OmsetTVF()
+RETURNS TABLE
+AS
+RETURN(
+	SELECT 
+		c.categoryname AS 'Kategori Produk',
+		YEAR(o.orderdate) AS 'Tahun',
+		SUM(od.qty * od.unitprice) AS 'Total Omset'
+	FROM Sales.Orders o
+	INNER JOIN Sales.OrderDetails od ON o.orderid = od.orderid
+	INNER JOIN Production.Products p ON od.productid = p.productid
+	INNER JOIN Production.Categories c ON p.categoryid = c.categoryid
+	GROUP BY YEAR(o.orderdate), c.categoryname
+);
+
+SELECT * FROM Sales.OmsetTVF()
+ORDER BY 'Kategori Produk', Tahun;
+
+/*CTE*/
+WITH OmsetCTE AS (
+	SELECT 
+		c.categoryname AS 'Kategori Produk',
+		YEAR(o.orderdate) AS 'Tahun',
+		SUM(od.qty * od.unitprice) AS 'Total Omset'
+	FROM Sales.Orders o
+	INNER JOIN Sales.OrderDetails od ON o.orderid = od.orderid
+	INNER JOIN Production.Products p ON od.productid = p.productid
+	INNER JOIN Production.Categories c ON p.categoryid = c.categoryid
+	GROUP BY YEAR(o.orderdate), c.categoryname
+)
+
+SELECT * FROM OmsetCTE
+ORDER BY 'Kategori Produk', Tahun;
+
+/*Deviratife Table*/
+SELECT *
+FROM (
+    SELECT 
+        c.categoryname AS 'Kategori Produk',
+        YEAR(o.orderdate) AS Tahun,
+        SUM(od.qty * od.unitprice) AS 'Total Omset'
+    FROM Sales.Orders o
+    INNER JOIN Sales.OrderDetails od ON o.orderid = od.orderid
+    INNER JOIN Production.Products p ON od.productid = p.productid
+    INNER JOIN Production.Categories c ON p.categoryid = c.categoryid
+    GROUP BY YEAR(o.orderdate), c.categoryname
+) AS OmsetDT
+ORDER BY 'Kategori Produk', Tahun;
+
+/*Pratikum*/
+
+/*Soal 1*/
+SELECT productid, productname, supplierid, unitprice, discontinued
+FROM Production.Products
+WHERE categoryid = 1;
+
+/*Soal 2*/
+CREATE VIEW Production.ProductsBeverages AS
+SELECT productid, productname, supplierid, unitprice, discontinued
+FROM Production.Products
+WHERE categoryid = 1;
+
+/*Soal 3*/
+SELECT productid, productname
+FROM Production.ProductsBeverages
+WHERE supplierid = 1;
+
+/*Soal 4*/
+ALTER VIEW Production.ProductsBeverages AS
+SELECT
+	productid, productname, supplierid, unitprice, discontinued
+FROM Production.Products
+WHERE categoryid = 1 
+ORDER BY productname;
+
+/*Soal 5*/
+ALTER VIEW Production.ProductsBeverages AS
+SELECT TOP(100) PERCENT
+	productid, productname, supplierid, unitprice, discontinued
+FROM Production.Products
+WHERE categoryid = 1 
+ORDER BY productname;
+
+SELECT * FROM Production.ProductsBeverages;
+
+/*Soal 6*/
+ALTER VIEW Production.ProductsBeverages AS 
+SELECT
+productid, productname, supplierid, unitprice, discontinued,
+CASE WHEN unitprice > 100. THEN N'high' ELSE N'normal' END 
+FROM Production.Products
+WHERE categoryid = 1;
+
+/*Soal 7*/
+ALTER VIEW Production.ProductsBeverages AS 
+SELECT
+  productid, productname, supplierid, unitprice, discontinued,
+  CASE WHEN unitprice > 100 THEN N'high' ELSE N'normal' END AS pricetype
+FROM Production.Products
+WHERE categoryid = 1;
+
+/*Praktikum-Bagian 5*/
+IF OBJECT_ID(N'Production.ProductsBeverages', N'V') IS NOT NULL 
+	DROP VIEW Production.ProductsBeverages;
+
+/*Soal 8*/
+SELECT p.productid, p.productname
+FROM (
+	SELECT productid, productname, supplierid, unitprice, discontinued,
+		CASE WHEN unitprice > 100 THEN N'high' ELSE N'normal' END AS pricetype
+	FROM Production.Products
+	WHERE categoryid = 1
+)AS p
+WHERE p.pricetype = 'high';
+
+/*Soal 9*/
+SELECT custid,
+	SUM(totalperorder) AS totalsalesamount,
+	AVG(totalperorder) AS avgsalesamount
+FROM (
+	SELECT o.custid, od.orderid,
+		SUM(od.qty * od.unitprice) AS totalperorder
+	FROM Sales.Orders o
+	INNER JOIN Sales.OrderDetails od ON o.orderid = od.orderid
+	GROUP BY o.custid, od.orderid
+) AS subquery
+GROUP BY custid
+ORDER BY custid;
+
+/*Soal 10*/
+SELECT
+    orderyear,
+    curtotalsales,
+    prevtotalsales,
+    CASE
+        WHEN prevtotalsales IS NOT NULL AND prevtotalsales <> 0 THEN
+            ((curtotalsales - prevtotalsales) * 100.0) / prevtotalsales
+        ELSE
+            NULL
+    END AS percentgrowth
+FROM (
+    SELECT
+        currentyear.orderyear,
+        curtotalsales,
+        prevtotalsales
+    FROM (
+        SELECT
+            YEAR(o.orderdate) AS orderyear,
+            SUM(ov.val) AS curtotalsales
+        FROM Sales.Orders o
+        INNER JOIN Sales.OrderValues ov ON o.orderid = ov.orderid
+        GROUP BY YEAR(o.orderdate)
+    ) AS currentyear
+    LEFT JOIN (
+        SELECT
+            YEAR(o.orderdate) AS orderyear,
+            SUM(ov.val) AS prevtotalsales
+        FROM Sales.Orders o
+        INNER JOIN Sales.OrderValues ov ON o.orderid = ov.orderid
+        GROUP BY YEAR(o.orderdate)
+    ) AS prevyear ON currentyear.orderyear = prevyear.orderyear + 1
+) AS result 
+ORDER BY orderyear;
+
+
+/*Soal 11*/
+WITH ProductBeverages AS (
+    SELECT
+        productid, productname, supplierid, unitprice, discontinued,
+		CASE WHEN unitprice > 100 THEN N'high' ELSE N'normal' END AS pricetype
+    FROM Production.Products
+    WHERE categoryid = 1
+)
+SELECT productid, productname
+FROM ProductBeverages
+WHERE pricetype = 'high';
+
+/*Soal 12*/
+WITH c2008 AS (
+    SELECT custid,
+        SUM(val) AS salesamt2008
+    FROM Sales.OrderValues
+    WHERE YEAR(orderdate) = 2008
+    GROUP BY custid
+)
+SELECT c.custid, c.contactname, c2008.salesamt2008
+FROM Sales.Customers c
+LEFT JOIN c2008 ON c.custid = c2008.custid;
+
+/*Soal 13*/
+WITH c2008 AS (
+    SELECT custid,
+        SUM(val) AS salesamt2008
+    FROM Sales.OrderValues
+    WHERE YEAR(orderdate) = 2008
+    GROUP BY custid
+),
+c2007 AS (
+    SELECT custid,
+        SUM(val) AS salesamt2007
+    FROM Sales.OrderValues
+    WHERE YEAR(orderdate) = 2007
+    GROUP BY custid
+)
+
+SELECT c.custid, c.contactname,
+	ISNULL(c2008.salesamt2008, 0) AS salesamt2008,
+	ISNULL(c2007.salesamt2007, 0) AS salesamt2007,
+	ISNULL(
+	CASE
+        WHEN c2007.salesamt2007 IS NOT NULL AND c2007.salesamt2007 <> 0 THEN
+            ((c2008.salesamt2008 - c2007.salesamt2007) * 100.0) / c2007.salesamt2007
+        ELSE
+            0
+    END, 0) AS percentgrowth
+FROM Sales.Customers c
+LEFT JOIN c2008 ON c.custid = c2008.custid
+LEFT JOIN c2007 ON c.custid = c2007.custid
+ORDER BY percentgrowth DESC;
+
+/*Soal 14*/
+SELECT custid, 
+	SUM(val) AS totalsalesamount
+FROM Sales.OrderValues
+WHERE YEAR(orderdate) = 2007
+GROUP BY custid;
+
+/*Soal 15*/
+CREATE FUNCTION dbo.fnGetSalesByCustomer(@orderyear AS INT) 
+RETURNS TABLE 
+AS 
+RETURN(
+	SELECT custid, 
+		SUM(val) AS totalsalesamount
+	FROM Sales.OrderValues
+	WHERE YEAR(orderdate) = 2007
+	GROUP BY custid
+);
+
+/*Soal 16*/
+ALTER FUNCTION dbo.fnGetSalesByCustomer(@orderyear AS INT) 
+RETURNS TABLE 
+AS 
+RETURN(
+	SELECT custid, 
+		SUM(val) AS totalsalesamount
+	FROM Sales.OrderValues
+	WHERE YEAR(orderdate) = @orderyear
+	GROUP BY custid
+);
+
+/*Soal 17*/
+SELECT custid, totalsalesamount
+FROM dbo.fnGetSalesByCustomer(2007);
+
+/*Soal 18*/
+WITH CustomerSales AS (
+    SELECT
+        od.productid,
+        p.productname,
+        SUM(od.qty * od.unitprice) AS totalsalesamount
+    FROM
+        Sales.OrderDetails od
+    INNER JOIN
+        Sales.Orders o ON od.orderid = o.orderid
+    INNER JOIN
+        Sales.Customers c ON o.custid = c.custid
+    INNER JOIN
+        Production.Products p ON od.productid = p.productid
+    WHERE
+        c.custid = 1
+    GROUP BY
+        od.productid, p.productname
+)
+SELECT TOP 3
+    productid,
+    productname,
+    totalsalesamount
+FROM
+    CustomerSales
+ORDER BY
+    totalsalesamount DESC;
+
+
+/*Soal 19*/
+CREATE FUNCTION dbo.fnGetTop3ProductsForCustomer 
+(@custid AS INT) 
+RETURNS TABLE
+AS
+RETURN (
+    WITH CustomerProductSales AS (
+        SELECT TOP 3
+            p.productid,
+            p.productname,
+            SUM(od.qty * od.unitprice) AS totalsalesamount
+        FROM
+            Sales.OrderDetails od
+        INNER JOIN Sales.Orders o ON od.orderid = o.orderid
+        INNER JOIN Sales.Customers c ON o.custid = c.custid
+        INNER JOIN Production.Products p ON od.productid = p.productid
+        WHERE
+            c.custid = @custid
+        GROUP BY
+            p.productid, p.productname
+        ORDER BY
+            totalsalesamount DESC
+    )
+
+SELECT productid, productname, totalsalesamount
+    FROM CustomerProductSales
+);
+
+/*Soal 20*/
+SELECT * FROM dbo.fnGetTop3ProductsForCustomer(1);
+
+/*Pratikum- Bagian 14*/
+IF OBJECT_ID('dbo.fnGetSalesByCustomer') IS NOT NULL DROP FUNCTION
+dbo.fnGetSalesByCustomer;
+IF OBJECT_ID('dbo.fnGetTop3ProductsForCustomer') IS NOT NULL DROP FUNCTION
+dbo.fnGetTop3ProductsForCustomer;
