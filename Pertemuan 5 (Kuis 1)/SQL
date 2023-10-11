@@ -1,0 +1,94 @@
+/*Kuis 1
+NAMA : NURHALIZA ANINDYA PUTRI
+NIM : 2241720016
+KELAS : TI - 2A
+ABSEN : 21
+*/
+
+/*SOAL 1 Tulis perintah T-SQL untuk menampilkan data product semua kolom untuk product yang kode kategorynya 2 atau 4 
+yang memiliki harga antara 15 samapi 20 diurutkan berdasarkan kategori id dari yang kecil ke yang besar */
+SELECT *
+FROM Production.Products
+WHERE categoryid IN (2, 4)
+	AND unitprice BETWEEN 15 AND 20
+ORDER BY categoryid ASC;
+
+/*SOAL 2 Tulis perintah T-SQL untuk menampilkan data product yang memiliki harga terbesar pada urrutan ke 5 hingga 10.*/
+SELECT *
+FROM Production.Products
+ORDER BY unitprice DESC
+OFFSET 4 ROWS
+FETCH NEXT 6 ROW ONLY;
+
+/*SOAL 3 Tulis perintah T-SQL untuk menampilkan data region dari data yang ada di konsumen dan pegawai dengan catatan 
+region yang sama hanya muncul sekali.*/
+SELECT region 
+FROM Sales.Customers
+UNION 
+SELECT region 
+FROM HR.Employees;
+
+/*SOAL 4 Tulis perintah T-SQL untuk menampilkan data karyawan (semua kolom) yang menjadi manajer*/
+SELECT *
+FROM HR.Employees
+WHERE empid IN (
+	SELECT DISTINCT mgrid 
+	FROM HR.Employees
+	);
+
+/*SOAL 5 Tulis perintah T-SQL untuk menampilkan data kategori beserta jumlah barang per kategori*/
+SELECT c.categoryid, c.categoryname, COUNT(p.productid) AS No_Of_Product
+FROM Production.Categories c
+LEFT JOIN Production.Products p ON c.categoryid = p.categoryid
+GROUP BY c.categoryid, c.categoryname;
+
+/*SOAL 6 Tulis perintah T-SQL untuk menampilkan data id, pegawai,fistname, lastname, usia, dan ,asa kerja setiap pegawai*/
+SELECT e.empid, e.firstname, e.lastname,
+	DATEDIFF(YEAR, e.birthdate, GETDATE()) AS usia,
+	DATEDIFF(YEAR, e.hiredate, GETDATE() ) AS masa_kerja
+FROM HR.Employees e;
+
+/*SOAL 7 Tulis perintah T-SQL untuk menampilkan data seperti no 6 ditambah kolom keterangan yang akan berisi 'produktif' 
+jika usia pegawai kurang dari sama dengan 60, sN 'lanjut usia' untuk usia lebih dari 60*/
+SELECT e.empid, e.firstname, e.lastname,
+	DATEDIFF(YEAR, e.birthdate, GETDATE()) AS usia,
+	DATEDIFF(YEAR, e.hiredate, GETDATE()) AS masa_kerja,
+	CASE
+		WHEN DATEDIFF(YEAR, e.birthdate, GETDATE()) <= 60 THEN 'produktif'
+		ELSE 'lanjut usia'
+	END AS keterangan
+FROM HR.Employees e;
+
+/*SOAL 8 Tulis perintah T-SQL untuk menampilkan total omset penjualan dikelompokkan berdasarkan nama kategori produk per tahun.
+Diurutkan berdasarkan nama category*/
+SELECT 
+	c.categoryname AS 'Kategori Produk', 
+	YEAR(orderdate) AS Tahun, 
+	SUM(od.qty * od.unitprice) AS 'Total Omset'
+FROM Sales.Orders o
+INNER JOIN Sales.OrderDetails AS od ON o.orderid = od.orderid
+INNER JOIN Production.Products AS p ON od.productid = p.productid
+INNER JOIN Production.Categories AS c ON p.categoryid = c.categoryid
+GROUP BY YEAR(orderdate), c.categoryname
+ORDER BY c.categoryname, YEAR(orderdate);
+
+
+/*SOAL 9 Tulis perintah T-SQL untuk menampilkan data jumlah dan total omset pemesanan bberdasarkan hari pemesanan*/
+SELECT 
+	DATENAME(WEEKDAY,o.orderdate) AS Hari,
+	COUNT(o.orderid) AS 'Jumlah Order',
+	SUM(od.qty * od.unitprice) AS'Total Omset'
+FROM Sales.Orders o
+INNER JOIN Sales.OrderDetails od ON o.orderid = od.orderid
+GROUP BY DATENAME(WEEKDAY,o.orderdate)
+ORDER BY 'Jumlah Order' DESC;
+
+/*SOAL 10 Tulis perintah T-SQL untuk menampilkan data pemesanan yang dilakukan pada 3 hari terbanyak jumlah pemesanannya*/
+SELECT *
+FROM Sales.Orders
+WHERE orderdate IN(
+	SELECT TOP 3 orderdate
+	FROM Sales.Orders
+	GROUP BY orderdate
+	ORDER BY COUNT(*) DESC
+	);
